@@ -1,0 +1,622 @@
+<title>魔女語翻譯機</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="魔法少女ノ魔女裁判的魔女語（fiXmArge Language）中文雙向翻譯工具">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Noto+Serif+TC:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 版面概念：一份審判記錄。上方是「供述」（輸入），下方是以魔女語寫成的「判決」，每個詞標上證據等級。 */
+:root {
+  --bg: #f2eef4;
+  --surface: #fbf9fc;
+  --ink: #241a2c;
+  --muted: #6c6174;
+  --line: #ddd2e3;
+  --accent: #9a2b4e;
+  --accent-ink: #ffffff;
+  --brass: #8a6a24;
+  --violet: #6a4cb0;
+  --wash: #ebe3ef;
+  --danger: #a3332b;
+  --font-witch: "IM Fell English", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-head: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16111a; --surface: #201925; --ink: #ede5f1; --muted: #a698ae; --line: #3a2f42;
+    --accent: #e17a9c; --accent-ink: #1b1220; --brass: #d3b16b; --violet: #b49df2; --wash: #2a2131; --danger: #ef8a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #16111a; --surface: #201925; --ink: #ede5f1; --muted: #a698ae; --line: #3a2f42;
+  --accent: #e17a9c; --accent-ink: #1b1220; --brass: #d3b16b; --violet: #b49df2; --wash: #2a2131; --danger: #ef8a80;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+}
+.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 22px; }
+header { display: grid; gap: 4px; }
+.eyebrow { font-family: var(--font-witch); font-style: italic; color: var(--accent); font-size: 1.05rem; letter-spacing: .02em; }
+h1 { font-family: var(--font-head); font-size: clamp(1.9rem, 6vw, 2.5rem); line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: .04em; }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 60ch; }
+h2 { font-family: var(--font-head); font-size: 1.15rem; margin: 0; letter-spacing: .04em; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+nav.tabs button { background: none; border: 0; padding: 10px 14px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+
+.panel { display: grid; gap: 16px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--surface); }
+.seg button { border: 0; background: none; padding: 6px 14px; border-radius: 999px; cursor: pointer; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.seg button:disabled { opacity: .45; cursor: not-allowed; }
+.spacer { flex: 1; }
+
+textarea, input[type="text"], input[type="password"], input[type="search"], select {
+  width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px;
+}
+textarea { min-height: 96px; resize: vertical; font-size: 1.05rem; }
+textarea.witch { font-family: var(--font-witch); font-size: 1.2rem; }
+.btn { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); padding: 9px 20px; border-radius: 999px; cursor: pointer; font-weight: 600; }
+.btn:disabled { opacity: .5; cursor: progress; }
+.btn.ghost { background: none; color: var(--accent); }
+.btn.small { padding: 5px 12px; font-size: .88rem; font-weight: 500; }
+.hint { color: var(--muted); font-size: .88rem; }
+
+.verdict { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px 20px; display: grid; gap: 14px; }
+.verdict-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.label { font-family: var(--font-mono); font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
+.out { font-size: 1.6rem; line-height: 1.4; overflow-wrap: anywhere; min-height: 1.4em; }
+.out.witch { font-family: var(--font-witch); }
+.out.zh { font-family: var(--font-head); font-size: 1.45rem; }
+.out.thinking { color: var(--muted); font-size: 1rem; font-family: var(--font-body); }
+
+.tokens { display: flex; flex-wrap: wrap; gap: 8px; }
+.tok { display: grid; gap: 1px; padding: 6px 10px 5px; border-radius: 8px; background: var(--wash); text-align: center; min-width: 0; }
+.tok .w { font-family: var(--font-witch); font-size: 1.08rem; line-height: 1.2; padding-bottom: 2px; border-bottom: 2px solid transparent; overflow-wrap: anywhere; }
+.tok .z { font-size: .78rem; color: var(--muted); }
+.tok.official .w { border-bottom: 2px solid var(--brass); }
+.tok.lyrics .w { border-bottom: 2px dashed var(--accent); }
+.tok.rule .w { border-bottom: 2px dotted var(--muted); }
+.tok.coined .w { text-decoration: underline wavy var(--violet); text-underline-offset: 5px; }
+.tok.guess .w { text-decoration: underline wavy var(--violet); text-underline-offset: 5px; }
+.tok.unknown { background: none; border: 1px dashed var(--line); }
+.tok.unknown .w { color: var(--muted); font-family: var(--font-body); font-size: .98rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .8rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 20px; height: 0; border-bottom: 2px solid var(--brass); }
+.legend i.lyrics { border-bottom-style: dashed; border-color: var(--accent); }
+.legend i.rule { border-bottom-style: dotted; border-color: var(--muted); }
+.legend i.coined { border: 0; height: 8px; background: radial-gradient(circle at 50% 100%, transparent 3px, var(--violet) 3px 4px, transparent 4px) 0 0 / 8px 8px repeat-x; }
+.legend i.unknown { border: 1px dashed var(--muted); height: 10px; width: 16px; border-radius: 3px; }
+.notes { font-size: .9rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; white-space: pre-wrap; }
+.error { color: var(--danger); font-size: .92rem; }
+
+.dict-tools { display: grid; grid-template-columns: 1fr 160px; gap: 10px; }
+@media (max-width: 520px) { .dict-tools { grid-template-columns: 1fr; } }
+.dict { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.dict-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: 4px 12px; padding: 10px 14px; border-top: 1px solid var(--line); align-items: baseline; }
+.dict-row:first-child { border-top: 0; }
+.dict-row .w { font-family: var(--font-witch); font-size: 1.15rem; overflow-wrap: anywhere; }
+.dict-row .k { font-size: .8rem; color: var(--muted); }
+.dict-row .m { min-width: 0; }
+.dict-row .ja { font-size: .82rem; color: var(--muted); }
+.badge { font-family: var(--font-mono); font-size: .7rem; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.badge.official { color: var(--brass); border-color: currentColor; }
+.badge.lyrics { color: var(--accent); border-color: currentColor; }
+.badge.coined { color: var(--violet); border-color: currentColor; }
+.count { font-variant-numeric: tabular-nums; }
+
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 520px) { .form-grid { grid-template-columns: 1fr; } }
+.field { display: grid; gap: 4px; }
+.field label { font-size: .85rem; color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; display: grid; gap: 12px; }
+.card p { margin: 0; }
+.empty { color: var(--muted); padding: 18px 14px; }
+.remove { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: .85rem; }
+.remove:hover { color: var(--danger); }
+pre.export { background: var(--wash); border-radius: 8px; padding: 12px; overflow-x: auto; font-family: var(--font-mono); font-size: .8rem; margin: 0; max-height: 220px; }
+footer { color: var(--muted); font-size: .82rem; border-top: 1px solid var(--line); padding-top: 14px; }
+footer a { color: inherit; }
+@media (prefers-reduced-motion: no-preference) {
+  .out { transition: opacity .2s ease; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">fiXmArge Language</div>
+    <h1>魔女語翻譯機</h1>
+    <p class="lede">把中文翻成《魔法少女ノ魔女裁判》裡的魔女語，或反過來。詞彙來自官方設定集，文法是從主題曲歸納的推測。</p>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-translate" aria-selected="true" data-tab="translate">翻譯</button>
+    <button role="tab" id="tab-dict" aria-selected="false" data-tab="dict">詞庫</button>
+    <button role="tab" id="tab-coined" aria-selected="false" data-tab="coined">自創詞 <span class="count" id="coined-count"></span></button>
+    <button role="tab" id="tab-settings" aria-selected="false" data-tab="settings">設定</button>
+  </nav>
+
+  <!-- 翻譯 -->
+  <section class="panel" id="panel-translate">
+    <div class="row">
+      <div class="seg" role="group" aria-label="翻譯方向">
+        <button id="dir-zh" aria-pressed="true">中文 → 魔女語</button>
+        <button id="dir-witch" aria-pressed="false">魔女語 → 中文</button>
+      </div>
+      <span class="spacer"></span>
+      <div class="seg" role="group" aria-label="翻譯方式">
+        <button id="mode-rule" aria-pressed="true">規則</button>
+        <button id="mode-ai" aria-pressed="false">AI</button>
+      </div>
+    </div>
+    <textarea id="src" aria-label="要翻譯的句子">因為殺人是禁忌，我不能原諒你</textarea>
+    <div class="row">
+      <button class="btn" id="go">翻譯</button>
+      <span class="hint" id="mode-hint">規則模式：查官方詞庫，輸入時自動翻譯，免費。</span>
+    </div>
+
+    <div class="verdict" aria-live="polite">
+      <div class="verdict-head">
+        <span class="label" id="out-label">魔女語</span>
+        <span class="spacer"></span>
+        <button class="btn ghost small" id="copy">複製</button>
+      </div>
+      <div class="out witch" id="out"></div>
+      <div class="tokens" id="tokens"></div>
+      <div class="legend">
+        <span><i></i>官方詞（設定集）</span>
+        <span><i class="lyrics"></i>歌詞推定</span>
+        <span><i class="rule"></i>文法規則補上</span>
+        <span><i class="coined"></i>自創／推測</span>
+        <span><i class="unknown"></i>查不到，保留原文</span>
+      </div>
+      <div class="notes" id="notes" hidden></div>
+      <div class="error" id="error" hidden></div>
+    </div>
+  </section>
+
+  <!-- 詞庫 -->
+  <section class="panel" id="panel-dict" hidden>
+    <div class="dict-tools">
+      <input type="search" id="dict-q" placeholder="搜尋魔女語、中文、日文或讀音" aria-label="搜尋詞庫">
+      <select id="dict-pos" aria-label="詞性"><option value="">全部詞性</option></select>
+    </div>
+    <div class="hint" id="dict-count"></div>
+    <div class="dict" id="dict-list"></div>
+  </section>
+
+  <!-- 自創詞 -->
+  <section class="panel" id="panel-coined" hidden>
+    <div class="card">
+      <h2>自創詞</h2>
+      <p class="hint">AI 模式造出的新詞會存在這裡，之後翻譯（規則模式也一樣）會沿用同一個拼法。這些詞只存在這個瀏覽器，想合併進官方詞庫的話，複製下面的內容交給 Claude。</p>
+      <div class="form-grid">
+        <div class="field"><label for="c-witch">魔女語</label><input type="text" id="c-witch" placeholder="例：ApRinGo"></div>
+        <div class="field"><label for="c-zh">中文</label><input type="text" id="c-zh" placeholder="例：蘋果"></div>
+        <div class="field"><label for="c-ja">日文</label><input type="text" id="c-ja" placeholder="例：りんご"></div>
+        <div class="field"><label for="c-pos">詞性</label><select id="c-pos"></select></div>
+      </div>
+      <div class="row"><button class="btn small" id="c-add">加入自創詞</button><span class="hint" id="c-msg"></span></div>
+    </div>
+    <div class="dict" id="coined-list"></div>
+    <div class="card">
+      <div class="row"><h2>匯出</h2><span class="spacer"></span><button class="btn ghost small" id="c-copy">複製全部</button></div>
+      <pre class="export" id="c-export"></pre>
+    </div>
+  </section>
+
+  <!-- 設定 -->
+  <section class="panel" id="panel-settings" hidden>
+    <div class="card" id="set-claude" hidden>
+      <h2>AI 模式：使用 Claude</h2>
+      <p>這個頁面開在 claude.ai 上，AI 模式會直接用你的 Claude 帳號翻譯，不需要 API 金鑰。第一次使用時，Claude 會詢問是否允許這個頁面使用你的額度。</p>
+    </div>
+    <div class="card" id="set-api">
+      <h2>AI 模式：Anthropic API 金鑰</h2>
+      <p class="hint">金鑰只存在這個瀏覽器裡，翻譯時由你的瀏覽器直接送到 Anthropic，不會經過其他地方。不要在別人的電腦上儲存。</p>
+      <div class="field"><label for="api-key">API 金鑰</label><input type="password" id="api-key" autocomplete="off" placeholder="sk-ant-…"></div>
+      <div class="row"><button class="btn small" id="api-save">儲存</button><button class="btn ghost small" id="api-clear">清除金鑰</button><span class="hint" id="api-msg"></span></div>
+    </div>
+    <div class="card">
+      <h2>AI 模型</h2>
+      <div class="seg" role="group" aria-label="模型">
+        <button id="model-haiku" aria-pressed="true">Haiku・快、便宜</button>
+        <button id="model-sonnet" aria-pressed="false">Sonnet・仔細</button>
+      </div>
+      <p class="hint">翻得怪的時候切到 Sonnet 比較看看。用 API 時，Haiku 每句大約 US$0.0005，Sonnet 大約 US$0.006。</p>
+    </div>
+    <div class="card">
+      <h2>關於規則</h2>
+      <p class="hint">語序採日語（動詞在句尾），Iz'u 當主題／受詞助詞，N'o 當「的」，oRei 放在動詞後表示命令。完整說明見 GitHub 上的 GRAMMAR.md。AI 標成官方詞的單字，程式會再對照詞庫檢查一次，查不到就改標為自創。</p>
+    </div>
+  </section>
+
+  <footer>
+    詞彙整理自《魔法少女ノ魔女裁判》官方設定集與 NGA 玩家整理帖，僅供同好學習交流，非官方作品。
+    <a href="https://github.com/jiajia729/-" target="_blank" rel="noopener">GitHub</a>
+  </footer>
+</div>
+
+<script>
+/*__ENGINE__*/
+</script>
+<script>
+(function () {
+  "use strict";
+  const DICT_TSV = /*__DICT__*/"";
+  const E = window.MajoEngine;
+  const BASE = E.parseTSV(DICT_TSV);
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem("majo." + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem("majo." + k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+    del(k) { try { localStorage.removeItem("majo." + k); } catch (e) {} },
+  };
+
+  const state = {
+    dir: "zh",            // zh: 中文→魔女語；witch: 魔女語→中文
+    mode: "rule",
+    model: store.get("model", "haiku"),
+    coined: store.get("coined", []),
+    apiKey: store.get("apiKey", ""),
+    sample: null,         // claude.ai 內建 Claude
+    busy: false,
+    ctl: null,
+  };
+  let idx = E.build(BASE, state.coined);
+  const POS_LIST = [...new Set(BASE.map(r => r.pos))];
+
+  /* ---------- 分頁 ---------- */
+  document.querySelectorAll("nav.tabs button").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
+  function showTab(name) {
+    document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+    ["translate", "dict", "coined", "settings"].forEach(t => ($("panel-" + t).hidden = t !== name));
+    if (name === "dict") renderDict();
+    if (name === "coined") renderCoined();
+  }
+
+  /* ---------- 翻譯 ---------- */
+  function setPressed(a, b) { $(a).setAttribute("aria-pressed", "true"); $(b).setAttribute("aria-pressed", "false"); }
+  $("dir-zh").onclick = () => setDir("zh");
+  $("dir-witch").onclick = () => setDir("witch");
+  $("mode-rule").onclick = () => setMode("rule");
+  $("mode-ai").onclick = () => setMode("ai");
+
+  function setDir(d) {
+    if (state.dir === d) return;
+    const prev = $("out").textContent.trim();
+    state.dir = d;
+    d === "zh" ? setPressed("dir-zh", "dir-witch") : setPressed("dir-witch", "dir-zh");
+    $("src").classList.toggle("witch", d === "witch");
+    $("out-label").textContent = d === "zh" ? "魔女語" : "中文";
+    // 把上一個結果帶進輸入框，方便來回對照
+    if (prev && !$("out").classList.contains("thinking")) $("src").value = prev;
+    $("src").placeholder = d === "zh" ? "輸入中文" : "輸入魔女語，例：gDie GoMi Iz'u weRel Ca-nan";
+    if (state.mode === "rule") runRule(); else clearOut();
+  }
+  function aiAvailable() { return !!state.sample || !!state.apiKey; }
+  function setMode(m) {
+    if (m === "ai" && !aiAvailable()) {
+      showError(window.claude ? "這個頁面還在連線 Claude，請稍等幾秒再試。" : "AI 模式需要 API 金鑰。到「設定」填入金鑰後再切換。");
+      return;
+    }
+    state.mode = m;
+    m === "rule" ? setPressed("mode-rule", "mode-ai") : setPressed("mode-ai", "mode-rule");
+    updateHint();
+    if (m === "rule") runRule(); else clearOut();
+  }
+  function updateHint() {
+    const modelName = state.model === "sonnet" ? "Sonnet" : "Haiku";
+    $("mode-hint").textContent = state.mode === "rule"
+      ? "規則模式：查官方詞庫，輸入時自動翻譯，免費。"
+      : state.sample ? "AI 模式：用你的 Claude 帳號翻譯，會自動造新詞。" : "AI 模式（" + modelName + "）：用你的 API 金鑰翻譯，會自動造新詞。";
+    $("mode-ai").disabled = !aiAvailable();
+  }
+
+  let debounce;
+  $("src").addEventListener("input", () => { if (state.mode === "rule") { clearTimeout(debounce); debounce = setTimeout(runRule, 180); } });
+  $("go").onclick = () => (state.mode === "rule" ? runRule() : runAI());
+  $("src").addEventListener("keydown", e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) $("go").click(); });
+
+  function clearOut() { $("out").textContent = ""; $("tokens").innerHTML = ""; $("notes").hidden = true; $("error").hidden = true; }
+  function showError(msg) { $("error").textContent = msg; $("error").hidden = !msg; }
+
+  function runRule() {
+    const text = $("src").value.trim();
+    showError("");
+    $("notes").hidden = true;
+    if (!text) { clearOut(); return; }
+    const r = state.dir === "zh" ? E.zhToWitch(text, idx) : E.witchToZh(text, idx);
+    render(r.text, r.tokens.filter(t => t.source !== "punct" && (t.witch || t.zh)).map(t => ({ w: t.witch, zh: t.zh, src: t.source, ja: t.ja })));
+    const unknown = r.tokens.filter(t => t.source === "unknown").length;
+    if (unknown) {
+      $("notes").textContent = state.dir === "zh"
+        ? "有 " + unknown + " 段查不到官方詞，先保留原文。切到 AI 模式可以照構詞規則造新詞。"
+        : "有 " + unknown + " 個詞不在詞庫裡。切到 AI 模式可以推測意思。";
+      $("notes").hidden = false;
+    }
+  }
+
+  function render(text, toks) {
+    const out = $("out");
+    out.classList.remove("thinking");
+    out.classList.toggle("witch", state.dir === "zh");
+    out.classList.toggle("zh", state.dir === "witch");
+    out.textContent = text;
+    const label = { official: "官方詞", lyrics: "歌詞推定", rule: "規則", coined: "自創", guess: "推測", unknown: "查不到" };
+    $("tokens").innerHTML = toks.map(t => {
+      const top = state.dir === "zh" ? t.w : t.w;
+      const bottom = state.dir === "zh" ? t.zh : t.zh;
+      const cls = t.src === "punct" ? "rule" : t.src;
+      return '<span class="tok ' + esc(cls) + '" title="' + esc(label[t.src] || t.src) + (t.ja ? "・" + esc(t.ja) : "") + '"><span class="w">' + esc(top || "　") + '</span><span class="z">' + esc(bottom || "") + "</span></span>";
+    }).join("");
+  }
+
+  $("copy").onclick = async () => {
+    const text = $("out").textContent;
+    if (!text) return;
+    try { await navigator.clipboard.writeText(text); flash($("copy"), "已複製"); }
+    catch (e) { const r = document.createRange(); r.selectNodeContents($("out")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); flash($("copy"), "已選取"); }
+  };
+  function flash(btn, msg) { const o = btn.textContent; btn.textContent = msg; setTimeout(() => (btn.textContent = o), 1400); }
+
+  /* ---------- AI ---------- */
+  const RULES = [
+    "你是《魔法少女ノ魔女裁判》魔女語（fiXmArge Language）的翻譯者。官方只公開了詞彙表，下列文法是從主題曲歸納的推測。",
+    "",
+    "文法：",
+    "1. 日語語序（主詞—受詞—動詞），動詞放句尾；助動詞 Ca-nan（能）、Ca-nay（不能）、ShouBeK（應該）、meKaMo（也許）、DiGhT（大概）接在動詞後。",
+    "2. 形容詞放在名詞前（gDie GoMi＝偉大的神），形容詞後面不加 N'o。",
+    "3. 助詞：N'o＝の（的，A N'o B＝A 的 B）；Iz'u＝は／を，接在主詞、受詞後面；「A 是 B」寫成 A Iz'u B。",
+    "4. Lai Nei＝像…一樣，放在名詞前。Bah 接在詞後表示強調。oRei 接在動詞後表示命令（祈使句、「…吧！」）。",
+    "5. 原因、條件、選擇的連接詞放句首：KaRause（因為）、Mof（如果）、Owk（或者）。",
+    "6. 動詞與形容詞沒有時態或活用變化，同一個詞兼表現在與過去。",
+    "7. 人稱代名詞：WAirTell＝我、rAwTell＝你、ObTell＝他／她，複數同形。否定用 Nii 接在後面（推測）。",
+    "8. 數字：wachi 一、tuni 二、san 三、foshi 四、fago 五、sik 六、naven 七、echi 八、nakyu 九、tone 十、haku 百、son' 千；十幾＝tone＋個位數，十三是 tone thn。",
+    "",
+    "造新詞（詞庫沒有時才造）：把同義的英文單字和日文讀音疊在一起，例如 GoMi＝god＋かみ（神）、KaRaDy＝body＋からだ、KeyGa＝key＋かぎ、FayO＝face＋かお、Kuth＝mouth＋くち、YowEAk＝weak＋よわい、yO-pare＝prepare＋ようい、KaRause＝because＋から、nEYar＝year＋ねん。大小寫刻意不規則，可用 - · ' 分節。人名地名直接保留原文。",
+    "",
+    "一定要優先使用詞庫裡的詞，拼法（含大小寫、符號）必須和詞庫完全一致。",
+  ].join("\n");
+
+  function dictText() {
+    return "詞庫（格式：魔女語｜中文｜日文｜詞性｜來源）：\n" + BASE.map(r => [r.witch, r.zh, r.ja, r.pos, r.source].join("｜")).join("\n");
+  }
+  function coinedText() {
+    if (!state.coined.length) return "";
+    return "\n之前已經造過的自創詞（請沿用同樣拼法）：\n" + state.coined.map(c => [c.witch, c.zh, c.ja || "", c.pos || ""].join("｜")).join("\n") + "\n";
+  }
+  function taskText(text) {
+    if (state.dir === "zh") {
+      return coinedText() + "\n請把下面的中文翻成魔女語：\n「" + text + "」\n\n" +
+        '只輸出一個 JSON 物件，不要其他文字：{"result":"完整魔女語句子","tokens":[{"w":"魔女語單字","zh":"對應中文","src":"official|lyrics|rule|coined|kept"}],"coined":[{"witch":"新詞","zh":"中文","ja":"日文","pos":"詞性","origin":"英文＋日文讀音"}],"notes":"一兩句繁體中文說明，例如造詞理由或不確定的地方"}\n' +
+        "src：official＝詞庫官方詞；lyrics＝詞庫中來源為 lyrics 的詞；rule＝依文法補上的助詞（Iz'u、oRei 等不在原句的詞）；coined＝你新造或沿用的自創詞；kept＝保留原文（人名等）。tokens 依魔女語句子順序排列。";
+    }
+    return coinedText() + "\n請把下面的魔女語翻成自然的繁體中文：\n「" + text + "」\n\n" +
+      '只輸出一個 JSON 物件，不要其他文字：{"result":"自然的中文句子","tokens":[{"w":"魔女語單字","zh":"意思","src":"official|lyrics|rule|coined|guess"}],"notes":"一兩句說明，例如哪些詞是推測的"}\n' +
+      "src：詞庫裡有的詞標 official 或 lyrics；Iz'u、oRei 這類功能詞標 rule；詞庫和自創詞都沒有、你依構詞規則推測意思的詞標 guess。";
+  }
+
+  function extractJSON(text) {
+    const a = text.indexOf("{"), b = text.lastIndexOf("}");
+    if (a < 0 || b <= a) throw new Error("bad_json");
+    return JSON.parse(text.slice(a, b + 1));
+  }
+
+  // 防呆：AI 說是官方詞的，必須真的在詞庫裡
+  function validate(res) {
+    const coinedSet = new Map(state.coined.map(c => [E.normalizeWitch(c.witch).toLowerCase(), c]));
+    const toks = (res.tokens || []).map(t => {
+      const w = E.normalizeWitch(t.w || "");
+      let src = String(t.src || "").toLowerCase();
+      const exact = idx.witchMap.get(w);
+      const loose = idx.witchLower.get(w.toLowerCase());
+      if (src === "official" || src === "lyrics") {
+        const e = exact || loose;
+        if (e && e.source !== "coined") return { w: e.witch, zh: t.zh, src: e.source, ja: e.ja };
+        src = state.dir === "zh" ? "coined" : "guess";
+      }
+      if ((src === "coined" || src === "guess") && (exact || loose)) {
+        const e = exact || loose;
+        return { w: e.witch, zh: t.zh, src: e.source === "coined" ? "coined" : e.source, ja: e.ja };
+      }
+      if (src === "kept") src = "unknown";
+      if (!["rule", "coined", "guess", "unknown"].includes(src)) src = "coined";
+      return { w, zh: t.zh, src };
+    });
+    const fresh = [];
+    if (state.dir === "zh") {
+      for (const c of res.coined || []) {
+        const w = E.normalizeWitch(c.witch || "");
+        if (!w || idx.witchLower.has(w.toLowerCase()) || coinedSet.has(w.toLowerCase())) continue;
+        fresh.push({ witch: w, zh: String(c.zh || ""), ja: String(c.ja || ""), pos: String(c.pos || ""), origin: String(c.origin || "") });
+      }
+    }
+    return { toks, fresh };
+  }
+
+  async function callAI(prompt) {
+    if (state.sample) {
+      return await state.sample(prompt.system + "\n\n" + prompt.dict + "\n\n" + prompt.task, {
+        modelTier: state.model === "sonnet" ? "default" : "quick",
+        signal: state.ctl.signal,
+      }).then(r => r.text);
+    }
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: state.ctl.signal,
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": state.apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: state.model === "sonnet" ? "claude-sonnet-5-5" : "claude-haiku-5-5",
+        max_tokens: 2000,
+        system: [
+          { type: "text", text: prompt.system },
+          { type: "text", text: prompt.dict, cache_control: { type: "ephemeral" } },
+        ],
+        messages: [{ role: "user", content: prompt.task }],
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = (body.error && body.error.message) || "";
+      const err = new Error(msg); err.status = res.status; throw err;
+    }
+    return (body.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+  }
+
+  function aiErrorText(e) {
+    if (e && e.name === "AbortError") return "";
+    if (e && e.code) {
+      const m = {
+        not_granted: "沒有取得使用 Claude 的許可。重新整理頁面後，在詢問視窗按允許即可。",
+        sampling_disabled: "這個帳號目前不能讓頁面使用 Claude，請改用規則模式。",
+        rate_limited: "使用太頻繁或已達用量上限，請稍後再試。",
+        session_expired: "claude.ai 登入已過期，請重新登入。",
+        refused: "Claude 拒絕翻譯這句話，請換個說法。",
+        invalid_json: "AI 回傳的格式不對，再按一次翻譯試試。",
+        cancelled: "",
+      };
+      return e.code in m ? m[e.code] : "連線出了問題，請再試一次。";
+    }
+    if (e && e.status) {
+      if (e.status === 401) return "API 金鑰無效。請到「設定」確認金鑰。";
+      if (e.status === 429) return "請求太頻繁，請稍等一下再試。";
+      if (e.status === 400 && /credit|balance/i.test(e.message)) return "API 餘額不足，請到 Anthropic 主控台儲值。";
+      if (e.status === 404) return "找不到這個模型，請到「設定」換另一個模型。";
+      return "API 回傳錯誤（" + e.status + "）：" + e.message;
+    }
+    if (e && e.message === "bad_json") return "AI 回傳的格式不對，再按一次翻譯試試。";
+    return "無法連線到 Anthropic API，請檢查網路。";
+  }
+
+  async function runAI() {
+    const text = $("src").value.trim();
+    if (!text || state.busy) return;
+    if (!aiAvailable()) { showError("AI 模式需要 API 金鑰。到「設定」填入金鑰。"); return; }
+    state.busy = true;
+    state.ctl = new AbortController();
+    $("go").disabled = true;
+    showError("");
+    $("notes").hidden = true;
+    $("tokens").innerHTML = "";
+    $("out").className = "out thinking";
+    $("out").textContent = "翻譯中…";
+    try {
+      const raw = await callAI({ system: RULES, dict: dictText(), task: taskText(text) });
+      const res = extractJSON(raw);
+      const { toks, fresh } = validate(res);
+      if (fresh.length) { state.coined = state.coined.concat(fresh); saveCoined(); }
+      render(String(res.result || ""), toks);
+      const notes = [res.notes || ""];
+      if (fresh.length) notes.push("新增 " + fresh.length + " 個自創詞：" + fresh.map(c => c.witch + "（" + c.zh + "）").join("、"));
+      const n = notes.filter(Boolean).join("\n");
+      $("notes").textContent = n; $("notes").hidden = !n;
+    } catch (e) {
+      $("out").className = "out " + (state.dir === "zh" ? "witch" : "zh");
+      $("out").textContent = "";
+      showError(aiErrorText(e));
+    } finally {
+      state.busy = false;
+      $("go").disabled = false;
+    }
+  }
+
+  /* ---------- 詞庫 ---------- */
+  POS_LIST.forEach(p => { $("dict-pos").insertAdjacentHTML("beforeend", "<option>" + esc(p) + "</option>"); $("c-pos").insertAdjacentHTML("beforeend", "<option>" + esc(p) + "</option>"); });
+  $("dict-q").addEventListener("input", renderDict);
+  $("dict-pos").addEventListener("change", renderDict);
+  const SRC_LABEL = { official: "官方", lyrics: "歌詞推定", coined: "自創" };
+  function dictRow(r, removable) {
+    return '<div class="dict-row"><div class="m"><div class="w">' + esc(r.witch) + '</div><div class="k">' + esc(r.kana || "") + '</div></div><div class="m"><div>' + esc(r.zh) + '</div><div class="ja">' + esc(r.ja || "") + "</div></div>" +
+      '<div class="row" style="gap:6px;justify-content:flex-end"><span class="badge">' + esc(r.pos || "") + '</span><span class="badge ' + esc(r.source) + '">' + esc(SRC_LABEL[r.source] || r.source) + "</span>" +
+      (removable ? '<button class="remove" data-w="' + esc(r.witch) + '">移除</button>' : "") + "</div></div>";
+  }
+  function renderDict() {
+    const q = $("dict-q").value.trim().toLowerCase();
+    const pos = $("dict-pos").value;
+    const rows = BASE.concat(state.coined.map(c => Object.assign({ source: "coined" }, c))).filter(r =>
+      (!pos || r.pos === pos) && (!q || [r.witch, r.zh, r.ja, r.kana].some(x => String(x || "").toLowerCase().includes(q))));
+    $("dict-count").textContent = "共 " + rows.length + " 個詞";
+    $("dict-list").innerHTML = rows.length ? rows.map(r => dictRow(r, false)).join("") : '<div class="empty">找不到符合的詞。</div>';
+  }
+
+  /* ---------- 自創詞 ---------- */
+  function saveCoined() {
+    store.set("coined", state.coined);
+    idx = E.build(BASE, state.coined);
+    $("coined-count").textContent = state.coined.length ? "（" + state.coined.length + "）" : "";
+    if (!$("panel-coined").hidden) renderCoined();
+  }
+  function renderCoined() {
+    const list = $("coined-list");
+    list.innerHTML = state.coined.length
+      ? state.coined.map(c => dictRow(Object.assign({ source: "coined" }, c), true)).join("")
+      : '<div class="empty">還沒有自創詞。用 AI 模式翻譯詞庫裡沒有的詞，或在上面手動加入。</div>';
+    list.querySelectorAll(".remove").forEach(b => (b.onclick = () => { state.coined = state.coined.filter(c => c.witch !== b.dataset.w); saveCoined(); }));
+    $("c-export").textContent = "witch\tkana\tja\tzh\tpos\tsource\n" + state.coined.map(c => [c.witch, "", c.ja || "", c.zh || "", c.pos || "", "coined"].join("\t")).join("\n");
+  }
+  $("c-add").onclick = () => {
+    const w = E.normalizeWitch($("c-witch").value), zh = $("c-zh").value.trim();
+    if (!w || !zh) { $("c-msg").textContent = "魔女語和中文都要填。"; return; }
+    if (idx.witchLower.has(w.toLowerCase())) { $("c-msg").textContent = w + " 已經在詞庫裡了。"; return; }
+    state.coined.push({ witch: w, zh, ja: $("c-ja").value.trim(), pos: $("c-pos").value });
+    saveCoined();
+    $("c-witch").value = $("c-zh").value = $("c-ja").value = "";
+    $("c-msg").textContent = "已加入 " + w + "。";
+  };
+  $("c-copy").onclick = async () => {
+    try { await navigator.clipboard.writeText($("c-export").textContent); flash($("c-copy"), "已複製"); }
+    catch (e) { const r = document.createRange(); r.selectNodeContents($("c-export")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); flash($("c-copy"), "已選取"); }
+  };
+
+  /* ---------- 設定 ---------- */
+  $("api-key").value = state.apiKey ? state.apiKey : "";
+  $("api-save").onclick = () => {
+    const k = $("api-key").value.trim();
+    if (!k) { $("api-msg").textContent = "請先貼上金鑰。"; return; }
+    state.apiKey = k;
+    $("api-msg").textContent = store.set("apiKey", k) ? "已儲存。" : "這個瀏覽器不能儲存，關掉頁面後要重新輸入。";
+    updateHint();
+  };
+  $("api-clear").onclick = () => { state.apiKey = ""; store.del("apiKey"); $("api-key").value = ""; $("api-msg").textContent = "已清除。"; if (state.mode === "ai" && !aiAvailable()) setMode("rule"); updateHint(); };
+  function setModel(m) { state.model = m; store.set("model", m); m === "haiku" ? setPressed("model-haiku", "model-sonnet") : setPressed("model-sonnet", "model-haiku"); updateHint(); }
+  $("model-haiku").onclick = () => setModel("haiku");
+  $("model-sonnet").onclick = () => setModel("sonnet");
+  setModel(state.model === "sonnet" ? "sonnet" : "haiku");
+
+  /* ---------- 啟動 ---------- */
+  if (window.claude && typeof window.claude.use === "function") {
+    // 在 claude.ai 上：用內建 Claude，不需要金鑰（瀏覽器無法從這裡直接連 Anthropic API）
+    $("set-api").hidden = true;
+    window.claude.use("sample").then(s => {
+      if (!s) return;
+      state.sample = s;
+      $("set-claude").hidden = false;
+      updateHint();
+    }).catch(() => {});
+  }
+  saveCoined();
+  updateHint();
+  runRule();
+})();
+</script>
