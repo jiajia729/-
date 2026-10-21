@@ -314,7 +314,7 @@ footer a { color: inherit; }
   function aiBlocked() {
     state.blocked = true;
     const card = $("set-claude");
-    card.querySelector("p").innerHTML = 'claude.ai 只開放頁面擁有者使用這個頁面的 AI 模式。想用 AI 的話，可以按頁面上方的 <b>Duplicate</b> 複製一份到自己的帳號，或改用 <a href="https://jiajia729.github.io/-/" target="_blank" rel="noopener">GitHub 版</a>（可以填自己的 API 金鑰）。';
+    card.querySelector("p").innerHTML = 'claude.ai 只開放頁面擁有者使用這個頁面的 AI 模式。想用 AI 的話，可以到 claude.ai 的 Artifacts 列表找到「魔女語翻譯機」，按右上角的「⋯」選 <b>Duplicate</b>，複製一份到自己的帳號，或改用 <a href="https://jiajia729.github.io/-/" target="_blank" rel="noopener">GitHub 版</a>（可以填自己的 API 金鑰）。';
     card.hidden = false;
     updateHint();
   }
