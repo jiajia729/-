@@ -310,7 +310,16 @@ footer a { color: inherit; }
     if (state.mode === "rule") runRule(); else clearOut();
   }
   function aiAvailable() { return !!state.sample || !!state.apiKey; }
+  // claude.ai 不開放「使用 Claude」給外部帳號時，說明原因與替代方法
+  function aiBlocked() {
+    state.blocked = true;
+    const card = $("set-claude");
+    card.querySelector("p").innerHTML = 'claude.ai 只開放頁面擁有者使用這個頁面的 AI 模式。想用 AI 的話，可以按頁面上方的 <b>Duplicate</b> 複製一份到自己的帳號，或改用 <a href="https://jiajia729.github.io/-/" target="_blank" rel="noopener">GitHub 版</a>（可以填自己的 API 金鑰）。';
+    card.hidden = false;
+    updateHint();
+  }
   function setMode(m) {
+    if (m === "ai" && state.blocked) { showTab("settings"); return; }
     if (m === "ai" && !aiAvailable()) {
       showError(window.claude ? "這個頁面還在連線 Claude，請稍等幾秒再試。" : "AI 模式需要 API 金鑰。到「設定」填入金鑰後再切換。");
       return;
@@ -325,7 +334,8 @@ footer a { color: inherit; }
     $("mode-hint").textContent = state.mode === "rule"
       ? "規則模式：查官方詞庫，輸入時自動翻譯，免費。"
       : state.sample ? "AI 模式：用你的 Claude 帳號翻譯，會自動造新詞。" : "AI 模式（" + modelName + "）：用你的 API 金鑰翻譯，會自動造新詞。";
-    $("mode-ai").disabled = !aiAvailable();
+    $("mode-ai").disabled = !aiAvailable() && !state.blocked;
+    if (state.blocked && state.mode === "rule") $("mode-hint").textContent = "規則模式：查官方詞庫，免費。這個頁面的 AI 模式只有擁有者能用，按「AI」看替代方法。";
   }
 
   let debounce;
@@ -609,7 +619,7 @@ footer a { color: inherit; }
     // 在 claude.ai 上：用內建 Claude，不需要金鑰（瀏覽器無法從這裡直接連 Anthropic API）
     $("set-api").hidden = true;
     window.claude.use("sample").then(s => {
-      if (!s) return;
+      if (!s) { aiBlocked(); return; }
       state.sample = s;
       $("set-claude").hidden = false;
       updateHint();
